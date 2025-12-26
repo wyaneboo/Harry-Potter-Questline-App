@@ -45,21 +45,19 @@ export async function initializeDatabase(): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       description TEXT,
-      difficulty TEXT DEFAULT 'medium',
+      difficulty TEXT DEFAULT 'Normal',
       xp_reward INTEGER DEFAULT 10,
       is_completed INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- User progress table: tracks overall user progress
+    -- User progress table: tracks user profile and progress
     CREATE TABLE IF NOT EXISTS user_progress (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL,
-      house TEXT,
-      total_xp INTEGER DEFAULT 0,
       level INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      xp INTEGER DEFAULT 0,
+      galleons INTEGER DEFAULT 0
     );
 
     -- Quest completions table: tracks which quests are completed
