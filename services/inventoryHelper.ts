@@ -28,6 +28,7 @@ export interface InventoryItem {
   id: string;
   drop_id: string;
   qty: number;
+  acquired_at: string;
 }
 
 /** Inventory item with drop details joined */
@@ -35,6 +36,7 @@ export interface InventoryItemWithDetails {
   id: string;
   drop_id: string;
   qty: number;
+  acquired_at: string;
   name: string;
   rarity: DropRarity;
   icon: string | null;
@@ -126,11 +128,15 @@ export async function addRandomDrop(): Promise<InventoryItemWithDetails | null> 
   const randomDrop = weightedDrops[Math.floor(Math.random() * weightedDrops.length)];
   const result = await addToInventory(randomDrop.id);
 
+  // Get the acquired_at timestamp from the database
+  const inventoryItem = await getInventoryByDropId(randomDrop.id);
+
   console.log(`🎁 Received: ${randomDrop.name} (${randomDrop.rarity})`);
   
   return {
     ...result,
     drop_id: randomDrop.id,
+    acquired_at: inventoryItem?.acquired_at || new Date().toISOString(),
     name: randomDrop.name,
     rarity: randomDrop.rarity,
     icon: randomDrop.icon
@@ -160,6 +166,7 @@ export async function getInventoryWithDetails(): Promise<InventoryItemWithDetail
       i.id,
       i.drop_id,
       i.qty,
+      i.acquired_at,
       d.name,
       d.rarity,
       d.icon

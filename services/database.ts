@@ -88,7 +88,14 @@ export async function initializeDatabase(): Promise<void> {
       id TEXT PRIMARY KEY,
       drop_id TEXT NOT NULL,
       qty INTEGER DEFAULT 1,
+      acquired_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (drop_id) REFERENCES drops(id) ON DELETE CASCADE
+    );
+
+    -- Settings table: key-value store for app configuration
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
     );
   `);
 
@@ -106,9 +113,11 @@ export async function resetDatabase(): Promise<void> {
     DROP TABLE IF EXISTS quests;
     DROP TABLE IF EXISTS projects;
     DROP TABLE IF EXISTS profile;
+    DROP TABLE IF EXISTS settings;
   `);
   await initializeDatabase();
   console.log('Database reset successfully');
 }
 
 export { db };
+

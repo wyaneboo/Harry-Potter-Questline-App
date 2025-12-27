@@ -16,14 +16,13 @@
  * HOW DOES IT WORK?
  * The app supports a single user (local profile). The profile table has a
  * fixed row with id = 1. XP is awarded when completing quests, and
- * the level is calculated based on total XP (every 100 XP = 1 level).
+ * the level is calculated using a gentle linear curve.
  * 
- * LEVEL FORMULA:
- * Level = floor(xp / 100) + 1
- * - 0-99 XP = Level 1
- * - 100-199 XP = Level 2
- * - 200-299 XP = Level 3
- * - And so on...
+ * LEVEL FORMULA (Linear Curve):
+ * - Level 1 → 2: 100 XP
+ * - Level 2 → 3: 120 XP
+ * - Level 3 → 4: 140 XP
+ * - Each subsequent level: +20 XP more
  * 
  * =============================================================================
  */
@@ -52,14 +51,56 @@ export interface ProfileData {
 }
 
 // =============================================================================
-// CONSTANTS
+// CONSTANTS & XP FORMULAS
 // =============================================================================
-
-/** XP required per level */
-const XP_PER_LEVEL = 100;
 
 /** Fixed profile ID (single-row table) */
 const PROFILE_ID = 1;
+
+/** Base XP required for first level up (Level 1 → 2) */
+const BASE_XP = 100;
+
+/** Additional XP required per level (+20 each level) */
+const XP_INCREMENT = 20;
+
+/**
+ * Calculate XP required to go from a specific level to the next.
+ * Level 1→2: 100, Level 2→3: 120, Level 3→4: 140, etc.
+ * @param level - Current level
+ * @returns XP needed to reach next level
+ */
+export function getXPForNextLevel(level: number): number {
+  return BASE_XP + (level - 1) * XP_INCREMENT;
+}
+
+/**
+ * Calculate total XP required to reach a specific level.
+ * Uses arithmetic series sum formula.
+ * @param level - Target level
+ * @returns Total XP needed to reach that level
+ */
+export function getTotalXPForLevel(level: number): number {
+  if (level <= 1) return 0;
+  // Sum of arithmetic series: n/2 * (first + last)
+  // For levels 1 to L-1: sum of (100, 120, 140, ..., 100 + (L-2)*20)
+  const n = level - 1; // number of level-ups
+  const firstTerm = BASE_XP;
+  const lastTerm = BASE_XP + (n - 1) * XP_INCREMENT;
+  return (n * (firstTerm + lastTerm)) / 2;
+}
+
+/**
+ * Calculate level from total XP using inverse of arithmetic series.
+ * @param totalXP - Total XP earned
+ * @returns Current level
+ */
+export function calculateLevelFromXP(totalXP: number): number {
+  if (totalXP < BASE_XP) return 1;
+  // Derived from quadratic formula solving: 10(L-1)(L+8) = XP
+  // L = (-7 + sqrt(81 + 0.4 * XP)) / 2
+  const level = Math.floor((-7 + Math.sqrt(81 + 0.4 * totalXP)) / 2);
+  return Math.max(1, level);
+}
 
 // =============================================================================
 // CREATE OPERATIONS
@@ -164,12 +205,19 @@ export async function getLevelProgress(): Promise<{
 }> {
   const profile = await getProfile();
   const totalXP = profile?.xp || 0;
-  const currentXPInLevel = totalXP % XP_PER_LEVEL;
+  const currentLevel = profile?.level || 1;
+  
+  // XP earned within current level
+  const xpForCurrentLevel = getTotalXPForLevel(currentLevel);
+  const currentXPInLevel = totalXP - xpForCurrentLevel;
+  
+  // XP needed to reach next level
+  const xpNeededForNextLevel = getXPForNextLevel(currentLevel);
   
   return {
     currentXPInLevel,
-    xpNeededForNextLevel: XP_PER_LEVEL,
-    percentage: (currentXPInLevel / XP_PER_LEVEL) * 100
+    xpNeededForNextLevel,
+    percentage: (currentXPInLevel / xpNeededForNextLevel) * 100
   };
 }
 
@@ -195,7 +243,7 @@ export async function addXP(amount: number): Promise<{
 
   const oldLevel = profile.level;
   const newTotalXP = profile.xp + amount;
-  const newLevel = Math.floor(newTotalXP / XP_PER_LEVEL) + 1;
+  const newLevel = calculateLevelFromXP(newTotalXP);
   const leveledUp = newLevel > oldLevel;
 
   await db.runAsync(
