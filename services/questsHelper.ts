@@ -24,7 +24,7 @@ import { db } from './database';
 // =============================================================================
 
 export type QuestDifficulty = 'Easy' | 'Normal' | 'Hard' | 'Boss';
-export type QuestStatus = 'todo' | 'done';
+export type QuestStatus = 'todo' | 'doing' | 'done';
 
 /** Represents a quest in the database */
 export interface Quest {
@@ -130,6 +130,17 @@ export async function getQuestById(id: string): Promise<Quest | null> {
 export async function getTodoQuests(): Promise<Quest[]> {
   const quests = await db.getAllAsync<Quest>(
     "SELECT * FROM quests WHERE status = 'todo' ORDER BY created_at DESC"
+  );
+  return quests;
+}
+
+/**
+ * Get all quests with 'doing' status.
+ * @returns Array of in-progress quests
+ */
+export async function getDoingQuests(): Promise<Quest[]> {
+  const quests = await db.getAllAsync<Quest>(
+    "SELECT * FROM quests WHERE status = 'doing' ORDER BY created_at DESC"
   );
   return quests;
 }
@@ -284,7 +295,21 @@ export async function markQuestDone(id: string): Promise<boolean> {
 }
 
 /**
- * Mark a quest as todo (undo completion).
+ * Mark a quest as doing (in progress).
+ * @param id - The quest ID to mark as doing
+ * @returns True if successful
+ */
+export async function markQuestDoing(id: string): Promise<boolean> {
+  const result = await db.runAsync(
+    "UPDATE quests SET status = 'doing' WHERE id = ?",
+    [id]
+  );
+  console.log(`Quest ${id} marked as doing`);
+  return result.changes > 0;
+}
+
+/**
+ * Mark a quest as todo (not started / undo completion).
  * @param id - The quest ID to mark as todo
  * @returns True if successful
  */

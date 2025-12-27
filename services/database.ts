@@ -60,7 +60,7 @@ export async function initializeDatabase(): Promise<void> {
       details TEXT,
       difficulty TEXT DEFAULT 'Normal' CHECK(difficulty IN ('Easy', 'Normal', 'Hard', 'Boss')),
       due_at TEXT,
-      status TEXT DEFAULT 'todo' CHECK(status IN ('todo', 'done')),
+      status TEXT DEFAULT 'todo' CHECK(status IN ('todo', 'doing', 'done')),
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       completed_at TEXT,
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
