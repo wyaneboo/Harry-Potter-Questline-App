@@ -1,30 +1,22 @@
 /**
  * =============================================================================
- * USER PROGRESS HELPER - Database Operations for User Profile & Progress
+ * PROFILE HELPER - Database Operations for User Profile
  * =============================================================================
  * 
  * WHAT IS THIS FILE?
- * This file manages all operations for the "user_progress" table. It handles
- * everything related to the player's profile, XP, levels, and galleons.
+ * This file manages all operations for the "profile" table. It handles
+ * the single-row user profile with name, level, XP, and galleons.
  * 
  * WHAT DOES IT DO?
- * - PROFILE: Create and manage the user's profile (username)
+ * - PROFILE: Create and manage the user's profile
  * - XP SYSTEM: Add XP, track total XP earned
  * - LEVELING: Calculate and update user level based on XP
  * - GALLEONS: Manage the user's currency (earn, spend, check balance)
  * 
  * HOW DOES IT WORK?
- * The app supports a single user (local profile). When the user first opens
- * the app, a profile is created. XP is awarded when completing quests, and
+ * The app supports a single user (local profile). The profile table has a
+ * fixed row with id = 1. XP is awarded when completing quests, and
  * the level is calculated based on total XP (every 100 XP = 1 level).
- * Galleons are the in-app currency earned from quests.
- * 
- * USER PROFILE STRUCTURE:
- * - id: Unique identifier (auto-generated)
- * - username: The user's display name
- * - level: Current level (starts at 1)
- * - xp: Total experience points earned
- * - galleons: In-game currency balance
  * 
  * LEVEL FORMULA:
  * Level = floor(xp / 100) + 1
@@ -32,13 +24,6 @@
  * - 100-199 XP = Level 2
  * - 200-299 XP = Level 3
  * - And so on...
- * 
- * USAGE EXAMPLES:
- * - await createUserProfile("Harry");
- * - await addXP(50);
- * - await addGalleons(100);
- * - await spendGalleons(25);
- * - const user = await getUserProgress();
  * 
  * =============================================================================
  */
@@ -49,23 +34,18 @@ import { db } from './database';
 // TYPE DEFINITIONS
 // =============================================================================
 
-/** Represents user progress in the database */
-export interface UserProgress {
+/** Represents user profile in the database */
+export interface Profile {
   id: number;
-  username: string;
+  name: string;
   level: number;
   xp: number;
   galleons: number;
 }
 
-/** Data needed to create a user profile */
-export interface CreateUserData {
-  username: string;
-}
-
-/** Data for updating user profile */
-export interface UpdateUserData {
-  username?: string;
+/** Data needed to create/update user profile */
+export interface ProfileData {
+  name?: string;
   level?: number;
   xp?: number;
   galleons?: number;
@@ -78,24 +58,47 @@ export interface UpdateUserData {
 /** XP required per level */
 const XP_PER_LEVEL = 100;
 
+/** Fixed profile ID (single-row table) */
+const PROFILE_ID = 1;
+
 // =============================================================================
 // CREATE OPERATIONS
 // =============================================================================
 
 /**
- * Create a new user profile.
- * Note: This app supports only one user (single-player local experience).
- * @param data - The user data (username required)
- * @returns The ID of the newly created user
+ * Create or initialize the user profile.
+ * This creates the fixed single-row profile if it doesn't exist.
+ * @param name - The user's display name
+ * @returns True if created, false if already exists
  */
-export async function createUserProfile(data: CreateUserData): Promise<number> {
-  const result = await db.runAsync(
-    `INSERT INTO user_progress (username, level, xp, galleons) 
-     VALUES (?, 1, 0, 0)`,
-    [data.username]
+export async function createProfile(name: string): Promise<boolean> {
+  const existing = await getProfile();
+  if (existing) {
+    console.log('Profile already exists');
+    return false;
+  }
+
+  await db.runAsync(
+    `INSERT INTO profile (id, name, level, xp, galleons) VALUES (?, ?, 1, 0, 0)`,
+    [PROFILE_ID, name]
   );
-  console.log(`User profile created with ID: ${result.lastInsertRowId}`);
-  return result.lastInsertRowId;
+  console.log(`Profile created for: ${name}`);
+  return true;
+}
+
+/**
+ * Ensure profile exists, creating one with default name if not.
+ * @param defaultName - Default name to use if creating new profile
+ * @returns The profile
+ */
+export async function ensureProfile(defaultName: string = 'Wizard'): Promise<Profile> {
+  const existing = await getProfile();
+  if (existing) {
+    return existing;
+  }
+
+  await createProfile(defaultName);
+  return (await getProfile())!;
 }
 
 // =============================================================================
@@ -103,50 +106,51 @@ export async function createUserProfile(data: CreateUserData): Promise<number> {
 // =============================================================================
 
 /**
- * Get the user's progress (assumes single user).
- * @returns The user progress or null if no user exists
+ * Get the user's profile.
+ * @returns The profile or null if not created
  */
-export async function getUserProgress(): Promise<UserProgress | null> {
-  const user = await db.getFirstAsync<UserProgress>(
-    'SELECT * FROM user_progress ORDER BY id ASC LIMIT 1'
+export async function getProfile(): Promise<Profile | null> {
+  const profile = await db.getFirstAsync<Profile>(
+    'SELECT * FROM profile WHERE id = ?',
+    [PROFILE_ID]
   );
-  return user || null;
+  return profile || null;
 }
 
 /**
- * Check if a user profile exists.
- * @returns True if a user profile exists
+ * Check if a profile exists.
+ * @returns True if a profile exists
  */
-export async function userExists(): Promise<boolean> {
-  const user = await getUserProgress();
-  return user !== null;
+export async function profileExists(): Promise<boolean> {
+  const profile = await getProfile();
+  return profile !== null;
 }
 
 /**
  * Get the user's current level.
- * @returns The user's level or 1 if no user
+ * @returns The user's level or 1 if no profile
  */
-export async function getUserLevel(): Promise<number> {
-  const user = await getUserProgress();
-  return user?.level || 1;
+export async function getLevel(): Promise<number> {
+  const profile = await getProfile();
+  return profile?.level || 1;
 }
 
 /**
  * Get the user's total XP.
- * @returns Total XP or 0 if no user
+ * @returns Total XP or 0 if no profile
  */
-export async function getUserXP(): Promise<number> {
-  const user = await getUserProgress();
-  return user?.xp || 0;
+export async function getXP(): Promise<number> {
+  const profile = await getProfile();
+  return profile?.xp || 0;
 }
 
 /**
  * Get the user's galleons balance.
- * @returns Galleons balance or 0 if no user
+ * @returns Galleons balance or 0 if no profile
  */
-export async function getUserGalleons(): Promise<number> {
-  const user = await getUserProgress();
-  return user?.galleons || 0;
+export async function getGalleons(): Promise<number> {
+  const profile = await getProfile();
+  return profile?.galleons || 0;
 }
 
 /**
@@ -158,8 +162,8 @@ export async function getLevelProgress(): Promise<{
   xpNeededForNextLevel: number;
   percentage: number;
 }> {
-  const user = await getUserProgress();
-  const totalXP = user?.xp || 0;
+  const profile = await getProfile();
+  const totalXP = profile?.xp || 0;
   const currentXPInLevel = totalXP % XP_PER_LEVEL;
   
   return {
@@ -184,19 +188,19 @@ export async function addXP(amount: number): Promise<{
   leveledUp: boolean;
   levelsGained: number;
 }> {
-  const user = await getUserProgress();
-  if (!user) {
-    throw new Error('No user profile exists. Create one first.');
+  const profile = await getProfile();
+  if (!profile) {
+    throw new Error('No profile exists. Create one first.');
   }
 
-  const oldLevel = user.level;
-  const newTotalXP = user.xp + amount;
+  const oldLevel = profile.level;
+  const newTotalXP = profile.xp + amount;
   const newLevel = Math.floor(newTotalXP / XP_PER_LEVEL) + 1;
   const leveledUp = newLevel > oldLevel;
 
   await db.runAsync(
-    `UPDATE user_progress SET xp = ?, level = ? WHERE id = ?`,
-    [newTotalXP, newLevel, user.id]
+    `UPDATE profile SET xp = ?, level = ? WHERE id = ?`,
+    [newTotalXP, newLevel, PROFILE_ID]
   );
 
   console.log(`Added ${amount} XP. Total: ${newTotalXP}, Level: ${newLevel}`);
@@ -219,15 +223,15 @@ export async function addXP(amount: number): Promise<{
  * @returns New galleons balance
  */
 export async function addGalleons(amount: number): Promise<number> {
-  const user = await getUserProgress();
-  if (!user) {
-    throw new Error('No user profile exists. Create one first.');
+  const profile = await getProfile();
+  if (!profile) {
+    throw new Error('No profile exists. Create one first.');
   }
 
-  const newBalance = user.galleons + amount;
+  const newBalance = profile.galleons + amount;
   await db.runAsync(
-    `UPDATE user_progress SET galleons = ? WHERE id = ?`,
-    [newBalance, user.id]
+    `UPDATE profile SET galleons = ? WHERE id = ?`,
+    [newBalance, PROFILE_ID]
   );
 
   console.log(`Added ${amount} galleons. New balance: ${newBalance}`);
@@ -244,23 +248,23 @@ export async function spendGalleons(amount: number): Promise<{
   newBalance: number;
   message: string;
 }> {
-  const user = await getUserProgress();
-  if (!user) {
-    throw new Error('No user profile exists. Create one first.');
+  const profile = await getProfile();
+  if (!profile) {
+    throw new Error('No profile exists. Create one first.');
   }
 
-  if (user.galleons < amount) {
+  if (profile.galleons < amount) {
     return {
       success: false,
-      newBalance: user.galleons,
-      message: `Not enough galleons! Need ${amount}, but only have ${user.galleons}.`
+      newBalance: profile.galleons,
+      message: `Not enough galleons! Need ${amount}, but only have ${profile.galleons}.`
     };
   }
 
-  const newBalance = user.galleons - amount;
+  const newBalance = profile.galleons - amount;
   await db.runAsync(
-    `UPDATE user_progress SET galleons = ? WHERE id = ?`,
-    [newBalance, user.id]
+    `UPDATE profile SET galleons = ? WHERE id = ?`,
+    [newBalance, PROFILE_ID]
   );
 
   console.log(`Spent ${amount} galleons. New balance: ${newBalance}`);
@@ -276,18 +280,18 @@ export async function spendGalleons(amount: number): Promise<{
  * @param data - The fields to update
  * @returns True if update was successful
  */
-export async function updateUserProfile(data: UpdateUserData): Promise<boolean> {
-  const user = await getUserProgress();
-  if (!user) {
-    throw new Error('No user profile exists. Create one first.');
+export async function updateProfile(data: ProfileData): Promise<boolean> {
+  const profile = await getProfile();
+  if (!profile) {
+    throw new Error('No profile exists. Create one first.');
   }
 
   const fields: string[] = [];
   const values: (string | number)[] = [];
 
-  if (data.username !== undefined) {
-    fields.push('username = ?');
-    values.push(data.username);
+  if (data.name !== undefined) {
+    fields.push('name = ?');
+    values.push(data.name);
   }
   if (data.level !== undefined) {
     fields.push('level = ?');
@@ -306,54 +310,54 @@ export async function updateUserProfile(data: UpdateUserData): Promise<boolean> 
     return false;
   }
 
-  values.push(user.id);
+  values.push(PROFILE_ID);
   const result = await db.runAsync(
-    `UPDATE user_progress SET ${fields.join(', ')} WHERE id = ?`,
+    `UPDATE profile SET ${fields.join(', ')} WHERE id = ?`,
     values
   );
 
-  console.log(`User profile updated, rows affected: ${result.changes}`);
+  console.log(`Profile updated, rows affected: ${result.changes}`);
   return result.changes > 0;
 }
 
 /**
- * Update the user's username.
- * @param username - The new username
+ * Update the user's name.
+ * @param name - The new name
  * @returns True if update was successful
  */
-export async function updateUsername(username: string): Promise<boolean> {
-  return updateUserProfile({ username });
+export async function updateName(name: string): Promise<boolean> {
+  return updateProfile({ name });
 }
 
 // =============================================================================
-// DELETE OPERATIONS
+// RESET OPERATIONS
 // =============================================================================
 
 /**
- * Reset user progress (XP, level, galleons) but keep profile username.
+ * Reset profile progress (XP, level, galleons) but keep name.
  * @returns True if successful
  */
 export async function resetProgress(): Promise<boolean> {
-  const user = await getUserProgress();
-  if (!user) {
+  const profile = await getProfile();
+  if (!profile) {
     return false;
   }
 
   const result = await db.runAsync(
-    `UPDATE user_progress SET xp = 0, level = 1, galleons = 0 WHERE id = ?`,
-    [user.id]
+    `UPDATE profile SET xp = 0, level = 1, galleons = 0 WHERE id = ?`,
+    [PROFILE_ID]
   );
 
-  console.log('User progress reset to Level 1, 0 XP, 0 Galleons');
+  console.log('Profile progress reset to Level 1, 0 XP, 0 Galleons');
   return result.changes > 0;
 }
 
 /**
- * Delete the user profile entirely.
+ * Delete the profile entirely.
  * @returns True if deletion was successful
  */
-export async function deleteUserProfile(): Promise<boolean> {
-  const result = await db.runAsync('DELETE FROM user_progress');
-  console.log(`User profile deleted, rows affected: ${result.changes}`);
+export async function deleteProfile(): Promise<boolean> {
+  const result = await db.runAsync('DELETE FROM profile WHERE id = ?', [PROFILE_ID]);
+  console.log(`Profile deleted, rows affected: ${result.changes}`);
   return result.changes > 0;
 }
