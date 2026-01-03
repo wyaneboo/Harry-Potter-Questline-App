@@ -1,5 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -8,7 +9,8 @@ import {
   getLevelProgress,
   Profile
 } from '@/services/profileHelper';
-import { getDoingQuests, getTodoQuests, Quest } from '@/services/questsHelper';
+import { getAllProjects, Project } from '@/services/projectsHelper';
+import { getDoneQuests, getQuestsByProject, Quest } from '@/services/questsHelper';
 
 // ============================================================================
 // THEME CONSTANTS
@@ -18,36 +20,61 @@ const COLORS = {
   // Harry Potter inspired colors
   gold: '#D4A84B',
   goldLight: '#F4D675',
+  amber50: '#FFFBEB',
+  amber100: '#FEF3C7',
+  amber200: '#FDE68A',
+  amber400: '#FBBF24',
+  amber500: '#F59E0B',
+  amber600: '#D97706',
   maroon: '#740001',
   maroonDark: '#4A0000',
-  parchment: '#F5E6C8',
-  darkBlue: '#0E1A40',
-  navyBlue: '#1A1A2E',
-  accent: '#C5A572',
-  // Status colors
-  success: '#4CAF50',
-  warning: '#FF9800',
-  danger: '#F44336',
-  // Difficulty colors
-  easy: '#4CAF50',
-  normal: '#2196F3',
-  hard: '#FF9800',
-  boss: '#9C27B0',
+  // Slate colors
+  slate400: '#94A3B8',
+  slate500: '#64748B',
+  slate600: '#475569',
+  slate700: '#334155',
+  slate800: '#1E293B',
+  slate900: '#0F172A',
+  slate950: '#020617',
 };
+
+// House icons mapping
+const HOUSE_ICONS: Record<string, string> = {
+  Gryffindor: '🦁',
+  Slytherin: '🐍',
+  Ravenclaw: '🦅',
+  Hufflepuff: '🦡',
+};
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface ProjectWithQuests extends Project {
+  quests: Quest[];
+  completedCount: number;
+  totalCount: number;
+}
+
+interface RecentQuest extends Quest {
+  projectTitle: string;
+}
 
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
 export default function HomeScreen() {
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [levelProgress, setLevelProgress] = useState({
     currentXPInLevel: 0,
     xpNeededForNextLevel: 100,
     percentage: 0,
   });
-  const [todoQuests, setTodoQuests] = useState<Quest[]>([]);
-  const [doingQuests, setDoingQuests] = useState<Quest[]>([]);
+  const [projects, setProjects] = useState<ProjectWithQuests[]>([]);
+  const [recentQuests, setRecentQuests] = useState<RecentQuest[]>([]);
+  const [house] = useState('Gryffindor'); // Default house, can be stored in profile later
 
   const loadData = useCallback(async () => {
     try {
@@ -59,11 +86,32 @@ export default function HomeScreen() {
       const progress = await getLevelProgress();
       setLevelProgress(progress);
 
-      // Get quests
-      const todo = await getTodoQuests();
-      const doing = await getDoingQuests();
-      setTodoQuests(todo.slice(0, 3)); // Show only first 3
-      setDoingQuests(doing.slice(0, 3));
+      // Get all projects with their quests
+      const allProjects = await getAllProjects();
+      const projectsWithQuests: ProjectWithQuests[] = await Promise.all(
+        allProjects.map(async (project) => {
+          const quests = await getQuestsByProject(project.id);
+          const completedCount = quests.filter(q => q.status === 'done').length;
+          return {
+            ...project,
+            quests,
+            completedCount,
+            totalCount: quests.length,
+          };
+        })
+      );
+      setProjects(projectsWithQuests);
+
+      // Get recent completed quests
+      const doneQuests = await getDoneQuests();
+      const recentWithProject: RecentQuest[] = doneQuests.slice(0, 5).map(quest => {
+        const project = projectsWithQuests.find(p => p.id === quest.project_id);
+        return {
+          ...quest,
+          projectTitle: project?.title || 'No Project',
+        };
+      });
+      setRecentQuests(recentWithProject);
     } catch (error) {
       console.error('Error loading data:', error);
     }
@@ -76,135 +124,154 @@ export default function HomeScreen() {
     }, [loadData])
   );
 
+  const getProgress = (current: number, max: number) => {
+    if (max === 0) return 0;
+    return Math.min(100, (current / max) * 100);
+  };
+
+  const handleOpenProject = (projectId: string) => {
+    router.push(`/project/${projectId}` as any);
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={[COLORS.navyBlue, COLORS.darkBlue]}
+        colors={[COLORS.slate950, COLORS.slate900]}
         style={styles.gradient}
       >
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Section */}
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.welcomeText}>Welcome back,</Text>
-            <Text style={styles.nameText}>{profile?.name || 'Wizard'}</Text>
+            <Text style={styles.headerTitle}>Character Sheet</Text>
+            <Text style={styles.headerSubtitle}>
+              {profile?.name || 'Wizard'} • Level {profile?.level || 1} {house}
+            </Text>
           </View>
 
-          {/* Profile Card */}
-          <View style={styles.profileCard}>
+          {/* Player Stats Card */}
+          <View style={styles.playerCardWrapper}>
+            <View style={styles.glowEffect} />
             <LinearGradient
               colors={[COLORS.maroon, COLORS.maroonDark]}
-              style={styles.profileGradient}
+              style={styles.playerCard}
             >
-              {/* Level Badge */}
-              <View style={styles.levelBadge}>
-                <Text style={styles.levelNumber}>{profile?.level || 1}</Text>
-                <Text style={styles.levelLabel}>LEVEL</Text>
-              </View>
-
-              {/* XP Progress */}
-              <View style={styles.xpContainer}>
-                <View style={styles.xpTextRow}>
-                  <Text style={styles.xpLabel}>Experience</Text>
-                  <Text style={styles.xpValue}>
-                    {levelProgress.currentXPInLevel} / {levelProgress.xpNeededForNextLevel} XP
-                  </Text>
-                </View>
-                <View style={styles.xpBarBackground}>
-                  <View 
-                    style={[
-                      styles.xpBarFill, 
-                      { width: `${Math.min(levelProgress.percentage, 100)}%` }
-                    ]} 
-                  />
+              {/* House Badge */}
+              <View style={styles.houseBadge}>
+                <Text style={styles.houseIcon}>{HOUSE_ICONS[house]}</Text>
+                <View style={styles.levelBadge}>
+                  <Text style={styles.levelBadgeText}>Lvl {profile?.level || 1}</Text>
                 </View>
               </View>
 
-              {/* Galleons */}
-              <View style={styles.galleonsContainer}>
-                <Text style={styles.galleonsIcon}>🪙</Text>
-                <Text style={styles.galleonsValue}>{profile?.galleons || 0}</Text>
-                <Text style={styles.galleonsLabel}>Galleons</Text>
+              {/* Player Info */}
+              <View style={styles.playerInfo}>
+                <View>
+                  <Text style={styles.playerName}>{profile?.name || 'Wizard'}</Text>
+                  <View style={styles.galleonsRow}>
+                    <Ionicons name="logo-bitcoin" size={12} color={COLORS.amber400} />
+                    <Text style={styles.galleonsText}>{profile?.galleons || 0} G</Text>
+                  </View>
+                </View>
+
+                {/* XP Bar */}
+                <View style={styles.xpSection}>
+                  <View style={styles.xpTextRow}>
+                    <Text style={styles.xpLabel}>EXPERIENCE</Text>
+                    <Text style={styles.xpValue}>
+                      {levelProgress.currentXPInLevel} / {levelProgress.xpNeededForNextLevel}
+                    </Text>
+                  </View>
+                  <View style={styles.xpBarBackground}>
+                    <View
+                      style={[
+                        styles.xpBarFill,
+                        { width: `${getProgress(levelProgress.currentXPInLevel, levelProgress.xpNeededForNextLevel)}%` }
+                      ]}
+                    />
+                  </View>
+                </View>
               </View>
             </LinearGradient>
           </View>
 
-          {/* Active Quests Section */}
+          {/* Questlines Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🔥 Active Quests</Text>
-            {doingQuests.length > 0 ? (
-              doingQuests.map((quest) => (
-                <QuestCard key={quest.id} quest={quest} />
-              ))
-            ) : (
-              <EmptyState message="No active quests. Start one from your todo list!" />
-            )}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Questlines</Text>
+              <Pressable style={styles.viewAllButton} onPress={() => router.push('/questlines' as any)}>
+                <Text style={styles.viewAllText}>VIEW ALL</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.questlinesList}>
+              {projects.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>No questlines yet. Create your first project!</Text>
+                </View>
+              ) : (
+                projects.map((project) => (
+                  <Pressable
+                    key={project.id}
+                    style={styles.questlineCard}
+                    onPress={() => handleOpenProject(project.id)}
+                  >
+                    <View style={[styles.questlineIcon, { backgroundColor: project.color || COLORS.slate800 }]}>
+                      <Ionicons name="document-text-outline" size={20} color={COLORS.slate400} />
+                    </View>
+                    <View style={styles.questlineContent}>
+                      <View style={styles.questlineHeader}>
+                        <Text style={styles.questlineTitle} numberOfLines={1}>{project.title}</Text>
+                        <Text style={styles.questlineCount}>
+                          {project.completedCount}/{project.totalCount}
+                        </Text>
+                      </View>
+                      <View style={styles.questlineProgressBg}>
+                        <View
+                          style={[
+                            styles.questlineProgressFill,
+                            { width: `${getProgress(project.completedCount, project.totalCount)}%` }
+                          ]}
+                        />
+                      </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={COLORS.slate600} />
+                  </Pressable>
+                ))
+              )}
+            </View>
           </View>
 
-          {/* Todo Quests Section */}
+          {/* Recent Chronicles Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📜 Todo Quests</Text>
-            {todoQuests.length > 0 ? (
-              todoQuests.map((quest) => (
-                <QuestCard key={quest.id} quest={quest} />
-              ))
-            ) : (
-              <EmptyState message="All caught up! Create a new quest to continue your adventure." />
-            )}
+            <Text style={styles.sectionTitle}>Recent Chronicles</Text>
+            <View style={styles.timeline}>
+              {recentQuests.length === 0 ? (
+                <Text style={styles.timelineEmpty}>No deeds recorded yet.</Text>
+              ) : (
+                recentQuests.map((quest) => (
+                  <View key={quest.id} style={styles.timelineItem}>
+                    <View style={styles.timelineDot} />
+                    <View style={styles.timelineContent}>
+                      <Text style={styles.timelineTitle}>{quest.title}</Text>
+                      <Text style={styles.timelineSubtitle}>{quest.projectTitle}</Text>
+                      <Text style={styles.timelineDate}>
+                        {quest.completed_at ? new Date(quest.completed_at).toLocaleDateString() : ''}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+            </View>
           </View>
 
           {/* Bottom spacing */}
           <View style={{ height: 100 }} />
         </ScrollView>
       </LinearGradient>
-    </View>
-  );
-}
-
-// ============================================================================
-// SUB-COMPONENTS
-// ============================================================================
-
-function QuestCard({ quest }: { quest: Quest }) {
-  const difficultyColors: Record<string, string> = {
-    Easy: COLORS.easy,
-    Normal: COLORS.normal,
-    Hard: COLORS.hard,
-    Boss: COLORS.boss,
-  };
-
-  return (
-    <Pressable style={styles.questCard}>
-      <View style={styles.questHeader}>
-        <View style={[
-          styles.difficultyBadge, 
-          { backgroundColor: difficultyColors[quest.difficulty] || COLORS.normal }
-        ]}>
-          <Text style={styles.difficultyText}>{quest.difficulty}</Text>
-        </View>
-        {quest.status === 'doing' && (
-          <View style={styles.activeIndicator}>
-            <Text style={styles.activeText}>IN PROGRESS</Text>
-          </View>
-        )}
-      </View>
-      <Text style={styles.questTitle}>{quest.title}</Text>
-      {quest.details && (
-        <Text style={styles.questDetails} numberOfLines={2}>
-          {quest.details}
-        </Text>
-      )}
-    </Pressable>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyStateText}>{message}</Text>
     </View>
   );
 }
@@ -224,192 +291,290 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingBottom: 24,
   },
 
   // Header
   header: {
-    marginBottom: 24,
+    paddingHorizontal: 24,
+    paddingTop: 60,
+    paddingBottom: 8,
   },
-  welcomeText: {
-    fontSize: 16,
-    color: COLORS.accent,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.amber50,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: COLORS.amber400,
     opacity: 0.8,
-  },
-  nameText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: COLORS.gold,
+    marginTop: 4,
   },
 
-  // Profile Card
-  profileCard: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    marginBottom: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  // Player Card
+  playerCardWrapper: {
+    marginHorizontal: 24,
+    marginTop: 24,
+    position: 'relative',
   },
-  profileGradient: {
+  glowEffect: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: COLORS.amber500,
+    opacity: 0.1,
+    borderRadius: 20,
+    transform: [{ scale: 1.05 }],
+  },
+  playerCard: {
+    borderRadius: 16,
     padding: 20,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.3)',
   },
-
-  // Level Badge
-  levelBadge: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: COLORS.gold,
+  houseBadge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: COLORS.slate900,
+    borderWidth: 2,
+    borderColor: COLORS.amber400,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.goldLight,
+    shadowColor: COLORS.amber400,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.3,
     shadowRadius: 10,
   },
-  levelNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.maroonDark,
+  houseIcon: {
+    fontSize: 36,
   },
-  levelLabel: {
+  levelBadge: {
+    position: 'absolute',
+    bottom: -8,
+    backgroundColor: COLORS.amber600,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: COLORS.amber400,
+  },
+  levelBadgeText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: COLORS.maroonDark,
+    fontWeight: '700',
+    color: COLORS.amber50,
+  },
+  playerInfo: {
+    flex: 1,
+    gap: 12,
+  },
+  playerName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.amber50,
+  },
+  galleonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  galleonsText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.amber400,
     opacity: 0.8,
   },
-
-  // XP Bar
-  xpContainer: {
-    flex: 1,
+  xpSection: {
+    gap: 6,
   },
   xpTextRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
   },
   xpLabel: {
-    fontSize: 14,
-    color: COLORS.parchment,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
+    color: COLORS.amber200,
+    opacity: 0.6,
+    letterSpacing: 1,
   },
   xpValue: {
-    fontSize: 14,
-    color: COLORS.gold,
+    fontSize: 10,
     fontWeight: '600',
+    color: COLORS.amber200,
+    opacity: 0.6,
   },
   xpBarBackground: {
-    height: 10,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: 5,
+    height: 6,
+    backgroundColor: COLORS.slate800,
+    borderRadius: 3,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.slate700,
   },
   xpBarFill: {
     height: '100%',
-    backgroundColor: COLORS.gold,
-    borderRadius: 5,
-  },
-
-  // Galleons
-  galleonsContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 12,
-  },
-  galleonsIcon: {
-    fontSize: 24,
-    marginBottom: 4,
-  },
-  galleonsValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.goldLight,
-  },
-  galleonsLabel: {
-    fontSize: 10,
-    color: COLORS.parchment,
-    opacity: 0.8,
+    backgroundColor: COLORS.amber400,
+    borderRadius: 3,
+    shadowColor: COLORS.amber400,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
 
   // Sections
   section: {
-    marginBottom: 24,
+    marginTop: 32,
+    paddingHorizontal: 24,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.gold,
-    marginBottom: 16,
-  },
-
-  // Quest Card
-  questCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(212, 168, 75, 0.2)',
-  },
-  questHeader: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  difficultyBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.amber50,
   },
-  difficultyText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  activeIndicator: {
-    backgroundColor: COLORS.warning,
+  viewAllButton: {
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
   },
-  activeText: {
-    color: '#fff',
+  viewAllText: {
     fontSize: 10,
-    fontWeight: '700',
-  },
-  questTitle: {
-    fontSize: 18,
     fontWeight: '600',
-    color: COLORS.parchment,
-    marginBottom: 4,
+    color: COLORS.slate500,
+    letterSpacing: 1,
   },
-  questDetails: {
+
+  // Questlines
+  questlinesList: {
+    gap: 12,
+  },
+  questlineCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 12,
+    padding: 12,
+    paddingRight: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
+    gap: 12,
+  },
+  questlineIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.slate700,
+  },
+  questlineContent: {
+    flex: 1,
+  },
+  questlineHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  questlineTitle: {
     fontSize: 14,
-    color: COLORS.accent,
-    opacity: 0.8,
+    fontWeight: '700',
+    color: COLORS.amber50,
+    flex: 1,
+  },
+  questlineCount: {
+    fontSize: 10,
+    color: COLORS.slate500,
+    fontFamily: 'monospace',
+    marginLeft: 8,
+  },
+  questlineProgressBg: {
+    height: 4,
+    backgroundColor: COLORS.slate900,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  questlineProgressFill: {
+    height: '100%',
+    backgroundColor: COLORS.slate600,
+    borderRadius: 2,
   },
 
   // Empty State
   emptyState: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 12,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(212, 168, 75, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.05)',
     borderStyle: 'dashed',
   },
   emptyStateText: {
-    color: COLORS.accent,
+    color: COLORS.slate500,
     fontSize: 14,
     textAlign: 'center',
-    opacity: 0.8,
+  },
+
+  // Timeline
+  timeline: {
+    marginTop: 16,
+    marginLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: COLORS.slate800,
+    paddingLeft: 20,
+    gap: 24,
+  },
+  timelineEmpty: {
+    color: COLORS.slate500,
+    fontSize: 12,
+    fontStyle: 'italic',
+    paddingVertical: 8,
+  },
+  timelineItem: {
+    position: 'relative',
+  },
+  timelineDot: {
+    position: 'absolute',
+    left: -29,
+    top: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: COLORS.slate900,
+    borderWidth: 2,
+    borderColor: 'rgba(217, 119, 6, 0.5)',
+  },
+  timelineContent: {
+    gap: 2,
+  },
+  timelineTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.amber100,
+  },
+  timelineSubtitle: {
+    fontSize: 10,
+    color: COLORS.slate500,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  timelineDate: {
+    fontSize: 10,
+    color: COLORS.slate600,
+    marginTop: 2,
   },
 });
