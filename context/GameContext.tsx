@@ -6,6 +6,29 @@
  * Provides app-wide access to game state using the existing SQLite database.
  * Wraps database helpers for convenient access in components.
  * 
+ * Main Components:
+ * 
+ * - GameProvider: React Context provider that wraps the app and manages all
+ *   game-related state. Handles data loading, caching, and synchronization
+ *   with the SQLite database. Automatically refreshes data on mount.
+ * 
+ * - useGame: Custom hook to access the GameContext. Provides access to:
+ *   
+ *   State:
+ *   - profile: Player profile with name, level, XP, and galleons
+ *   - levelProgress: Current XP progress towards next level
+ *   - projects: All projects with their associated quests
+ *   - inventory: Player's collected items/drops
+ *   - activeProjectId: Currently selected project
+ *   - isLoading: Data loading state
+ *   
+ *   Actions:
+ *   - moveQuest: Change quest status (todo/doing/done) with auto-rewards
+ *   - addQuest/updateQuest/deleteQuest: Quest CRUD operations
+ *   - addXP/addGalleons: Reward player with experience or currency
+ *   - rewardQuestCompletion: Award XP, galleons, and random loot drops
+ *   - refreshData: Force reload all data from database
+ * 
  * =============================================================================
  */
 
@@ -13,26 +36,27 @@ import React, { createContext, ReactNode, useCallback, useContext, useEffect, us
 
 import { addRandomDrop, getInventoryWithDetails, InventoryItemWithDetails } from '@/services/inventoryHelper';
 import {
-    addGalleons as dbAddGalleons,
-    addXP as dbAddXP,
-    ensureProfile,
-    getLevelProgress,
-    Profile
+  addGalleons as dbAddGalleons,
+  addXP as dbAddXP,
+  ensureProfile,
+  getLevelProgress,
+  Profile
 } from '@/services/profileHelper';
 import { getAllProjects, Project } from '@/services/projectsHelper';
 import {
-    createQuest,
-    CreateQuestData,
-    deleteQuest as dbDeleteQuest,
-    updateQuest as dbUpdateQuest,
-    getQuestsByProject,
-    markQuestDoing,
-    markQuestDone,
-    markQuestTodo,
-    Quest,
-    QuestDifficulty,
-    QuestStatus,
-    UpdateQuestData,
+  createQuest,
+  CreateQuestData,
+  deleteQuest as dbDeleteQuest,
+  updateQuest as dbUpdateQuest,
+  getQuestById,
+  getQuestsByProject,
+  markQuestDoing,
+  markQuestDone,
+  markQuestTodo,
+  Quest,
+  QuestDifficulty,
+  QuestStatus,
+  UpdateQuestData,
 } from '@/services/questsHelper';
 
 // ============================================================================
@@ -188,12 +212,8 @@ export function GameProvider({ children }: GameProviderProps) {
 
   const moveQuest = useCallback(async (questId: string, newStatus: QuestStatus) => {
     try {
-      // Find the quest to check its current status
-      let quest: Quest | undefined;
-      for (const project of projects) {
-        quest = project.quests.find(q => q.id === questId);
-        if (quest) break;
-      }
+      // Fetch quest directly from database to avoid stale state issues
+      const quest = await getQuestById(questId);
 
       if (!quest) {
         console.error('Quest not found:', questId);
@@ -222,7 +242,7 @@ export function GameProvider({ children }: GameProviderProps) {
       console.error('Error moving quest:', error);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects, loadProjects]);
+  }, [loadProjects]);
 
   const addQuest = useCallback(async (projectId: string, data: Omit<CreateQuestData, 'project_id'>) => {
     try {

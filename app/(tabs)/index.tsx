@@ -1,3 +1,22 @@
+/**
+ * =============================================================================
+ * HOME SCREEN - Character Sheet / Dashboard
+ * =============================================================================
+ * 
+ * The main landing screen displaying the player's character sheet and dashboard.
+ * Shows player profile information including level, XP progress, house affiliation,
+ * and galleon balance. Also provides quick access to active questlines and displays
+ * a timeline of recently completed quests.
+ * 
+ * Features:
+ * - Player card with house badge, level, XP bar, and currency display
+ * - Questlines section showing all projects with completion progress
+ * - Recent Chronicles timeline showing recently completed quests
+ * - Navigation to questlines list and individual project details
+ * 
+ * =============================================================================
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -5,9 +24,9 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import {
-  ensureProfile,
-  getLevelProgress,
-  Profile
+    ensureProfile,
+    getLevelProgress,
+    Profile
 } from '@/services/profileHelper';
 import { getAllProjects, Project } from '@/services/projectsHelper';
 import { getDoneQuests, getQuestsByProject, Quest } from '@/services/questsHelper';

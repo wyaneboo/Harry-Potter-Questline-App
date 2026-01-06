@@ -3,8 +3,19 @@
  * KANBAN COMPONENTS - React Native Kanban Board
  * =============================================================================
  * 
+ * Provides Kanban board functionality for the quest management system.
  * Converted from web dnd-kit version to React Native with tap-based actions.
  * Instead of drag-and-drop, uses action buttons to move quests between columns.
+ * 
+ * Main Components:
+ * 
+ * - KanbanColumn: A scrollable column container that displays quests grouped by
+ *   status (Todo, Doing, Done). Shows column header with status indicator and
+ *   quest count badge. Renders QuestCard components for each quest.
+ * 
+ * - QuestCard: Individual quest card displaying title, description, difficulty
+ *   badge, due date, and XP reward. Includes quick action buttons to move quests
+ *   between statuses (start, complete, revert) without opening the detail view.
  * 
  * =============================================================================
  */
@@ -12,12 +23,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  ViewStyle,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    ViewStyle,
 } from 'react-native';
 
 import { Quest, QuestDifficulty, QuestStatus } from '@/services/questsHelper';

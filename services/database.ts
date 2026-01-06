@@ -99,6 +99,48 @@ export async function initializeDatabase(): Promise<void> {
     );
   `);
 
+  // Migration: Fix quests table CHECK constraint to include 'doing' status
+  // This is needed for databases created with an older schema
+  try {
+    // Check if we need to migrate by trying to get table info
+    const tableInfo = await db.getFirstAsync<{ sql: string }>(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='quests'"
+    );
+    
+    // If the table exists but doesn't include 'doing' in the constraint, migrate it
+    if (tableInfo?.sql && !tableInfo.sql.includes("'doing'")) {
+      console.log('Migrating quests table to include "doing" status...');
+      
+      await db.execAsync(`
+        -- Create new table with correct schema
+        CREATE TABLE IF NOT EXISTS quests_new (
+          id TEXT PRIMARY KEY,
+          project_id TEXT,
+          title TEXT NOT NULL,
+          details TEXT,
+          difficulty TEXT DEFAULT 'Normal' CHECK(difficulty IN ('Easy', 'Normal', 'Hard', 'Boss')),
+          due_at TEXT,
+          status TEXT DEFAULT 'todo' CHECK(status IN ('todo', 'doing', 'done')),
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          completed_at TEXT,
+          FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+        );
+        
+        -- Copy data from old table
+        INSERT INTO quests_new SELECT * FROM quests;
+        
+        -- Drop old table and rename new one
+        DROP TABLE quests;
+        ALTER TABLE quests_new RENAME TO quests;
+      `);
+      
+      console.log('Quests table migration completed successfully');
+    }
+  } catch (migrationError) {
+    console.log('Migration check:', migrationError);
+    // Migration not needed or already done
+  }
+
   console.log('Database initialized successfully');
 }
 

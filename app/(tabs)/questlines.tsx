@@ -1,3 +1,21 @@
+/**
+ * =============================================================================
+ * QUESTLINES SCREEN - Project/Questline Management
+ * =============================================================================
+ * 
+ * Main screen for viewing and managing all questlines (projects) in the app.
+ * Displays a list of projects with their quest statistics (todo, doing, done),
+ * progress bars, and allows creating new questlines via a modal form.
+ * 
+ * Features:
+ * - Overview stats showing total, active, and completed quests across all projects
+ * - Project cards with color-coded status pills and progress indicators
+ * - Modal form for creating new questlines with title, description, and color
+ * - Navigation to individual project detail screens
+ * 
+ * =============================================================================
+ */
+
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';

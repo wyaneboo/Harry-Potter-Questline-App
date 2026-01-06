@@ -3,8 +3,37 @@
  * UI COMPONENTS - Reusable React Native Components
  * =============================================================================
  * 
- * Converted from web Tailwind version to React Native with StyleSheet.
- * Harry Potter themed UI components for the questline app.
+ * A collection of Harry Potter themed, reusable UI components for the questline
+ * app. Converted from web Tailwind version to React Native with StyleSheet.
+ * 
+ * Main Components:
+ * 
+ * - Button: Themed button with primary, secondary, ghost, and danger variants.
+ *   Supports disabled state and press animations.
+ * 
+ * - MagicalCard: Card container with optional magical glow effect and press
+ *   support. Used as a base container for content sections.
+ * 
+ * - Header: Page header component with title, optional subtitle, and right-side
+ *   action element slot.
+ * 
+ * - Modal: Bottom sheet modal with slide animation, title header, close button,
+ *   and scrollable content area.
+ * 
+ * - Input: Styled text input with optional label. Themed with dark background
+ *   and gold accent colors.
+ * 
+ * - Textarea: Multi-line text input extending Input with configurable row height.
+ * 
+ * - Select: Segmented button group for single-option selection. Displays options
+ *   as horizontally arranged, pressable buttons.
+ * 
+ * - Badge: Small status indicator with icon support and multiple color variants
+ *   (default, success, warning, danger, gold).
+ * 
+ * - Divider: Horizontal separator line for visual content separation.
+ * 
+ * - EmptyState: Placeholder view for empty lists with icon, title, and message.
  * 
  * =============================================================================
  */
