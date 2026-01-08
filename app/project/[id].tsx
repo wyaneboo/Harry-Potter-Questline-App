@@ -1,47 +1,111 @@
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+/**
+ * =============================================================================
+ * PROJECT DETAIL SCREEN - [id].tsx
+ * =============================================================================
+ * 
+ * WHAT IS THIS FILE?
+ * This is the main screen for viewing and managing quests within a specific 
+ * project/questline. The "[id]" in the filename means this is a DYNAMIC ROUTE - 
+ * the actual project ID comes from the URL (like /project/abc123).
+ * 
+ * WHAT DOES IT DO?
+ * - Displays a Kanban board with 3 columns: TODO, DOING, DONE
+ * - Shows all quests belonging to this project
+ * - Allows creating new quests via a modal form
+ * - Allows editing/deleting existing quests
+ * - Supports DRAG-AND-DROP to move quests between columns
+ * - Quick action buttons to start/complete quests without opening modal
+ * 
+ * HOW IS IT ORGANIZED?
+ * 1. IMPORTS (lines ~40-70): External libraries and our own code
+ * 2. CONSTANTS (lines ~75-85): Colors and configuration
+ * 3. MAIN COMPONENT (lines ~90-405): ProjectDetailScreen - the main screen
+ * 4. SUB-COMPONENTS (lines ~410-595): DraggableColumn and DraggableQuestCard
+ * 5. STYLES (lines ~600+): Visual styling for all components
+ * 
+ * KEY TYPESCRIPT CONCEPTS USED:
+ * 
+ * 1. useState<Type>(initialValue)
+ *    - Creates a "state" variable that causes re-render when changed
+ *    - The <Type> tells TypeScript what type of data it holds
+ *    - Example: useState<Quest[]>([]) = array of quests, starts empty
+ * 
+ * 2. useCallback(fn, deps)
+ *    - "Remembers" a function so it doesn't get recreated each render
+ *    - deps = dependencies - function recreates only when these change
+ * 
+ * 3. async/await
+ *    - For "waiting" on operations that take time (like database calls)
+ *    - async function can use await to pause until result is ready
+ * 
+ * 4. Gesture Handlers
+ *    - Special functions that detect user touches (tap, pan/drag, etc.)
+ *    - Pan gesture = dragging motion
+ *    - Tap gesture = single touch
+ * 
+ * 5. Animated Values (useSharedValue)
+ *    - Special values that can change smoothly for animations
+ *    - Used for drag position, scale effects, etc.
+ * 
+ * =============================================================================
+ */
+
+// LIBRARY IMPORTS - External packages we're using
+import { Ionicons } from '@expo/vector-icons'; // Icon library
+import { LinearGradient } from 'expo-linear-gradient'; // Gradient backgrounds
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'; // Navigation
+import { useCallback, useRef, useState } from 'react'; // React hooks
+
+// REACT NATIVE COMPONENTS - The building blocks for our UI
 import {
-    Alert,
-    Dimensions,
-    Modal,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Alert, // Pop-up dialog boxes
+  Dimensions, // Get screen size
+  Modal, // Full-screen overlay
+  Pressable, // Touchable button
+  ScrollView, // Scrollable container
+  StyleSheet, // CSS-like styling
+  Text, // Display text
+  TextInput, // Text input field
+  View, // Container (like HTML div)
 } from 'react-native';
+
+// GESTURE HANDLING - For detecting touch gestures (drag-and-drop)
 import {
-    Gesture,
-    GestureDetector,
-    GestureHandlerRootView,
+  Gesture, // Create gesture definitions
+  GestureDetector, // Wrapper that detects gestures on children
+  GestureHandlerRootView, // Required wrapper at the root
 } from 'react-native-gesture-handler';
+
+// ANIMATIONS - For smooth, performant animations
 import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  runOnJS, // Run JavaScript from animation thread
+  useAnimatedStyle, // Create animated styles
+  useSharedValue, // Create animated values
+  withSpring, // Spring animation (bouncy)
+  withTiming, // Timing animation (linear)
 } from 'react-native-reanimated';
 
-import { useGame } from '@/context/GameContext';
-import { getProjectById, Project } from '@/services/projectsHelper';
+// OUR OWN CODE - Custom hooks and database helpers
+import { useGame } from '@/context/GameContext'; // Game state (XP, level)
+import { getProjectById, Project } from '@/services/projectsHelper'; // Project database operations
 import {
-    createQuest,
-    deleteQuest,
-    getQuestsByProject,
-    Quest,
-    QuestDifficulty,
-    QuestStatus,
-    updateQuest,
+  createQuest, // Create new quest in database
+  deleteQuest, // Delete quest from database
+  getQuestsByProject, // Get all quests for a project
+  Quest, // Type definition for quest data
+  QuestDifficulty, // 'Easy' | 'Normal' | 'Hard' | 'Boss'
+  QuestStatus, // 'todo' | 'doing' | 'done'
+  updateQuest, // Update quest in database
 } from '@/services/questsHelper';
 
 // ============================================================================
 // THEME CONSTANTS
 // ============================================================================
 
+/**
+ * COLORS object - Central color definitions for consistent styling.
+ * Using an object makes colors reusable and easy to change in one place.
+ */
 const COLORS = {
   gold: '#D4A84B',
   goldLight: '#F4D675',
@@ -71,6 +135,10 @@ const COLORS = {
   danger: '#EF4444',
 };
 
+/**
+ * DIFFICULTY_CONFIG - Maps difficulty levels to display labels and colors.
+ * Record<QuestDifficulty, {...}> ensures only valid difficulty keys are used.
+ */
 const DIFFICULTY_CONFIG: Record<QuestDifficulty, { label: string; color: string }> = {
   Easy: { label: 'Novice', color: COLORS.easy },
   Normal: { label: 'Adept', color: COLORS.normal },
@@ -78,6 +146,10 @@ const DIFFICULTY_CONFIG: Record<QuestDifficulty, { label: string; color: string 
   Boss: { label: 'Legendary', color: COLORS.boss },
 };
 
+/**
+ * Screen dimensions for layout calculations.
+ * Dimensions.get('window') returns { width, height } of the device screen.
+ */
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const COLUMN_WIDTH = 280;
 
@@ -85,55 +157,142 @@ const COLUMN_WIDTH = 280;
 // MAIN COMPONENT
 // ============================================================================
 
+/**
+ * ProjectDetailScreen Component
+ * 
+ * This is the MAIN screen for managing quests within a single project.
+ * It displays a Kanban board with three columns and allows CRUD operations on quests.
+ * 
+ * "export default" means this is the primary export from this file.
+ * React Navigation uses this default export as the screen component.
+ */
 export default function ProjectDetailScreen() {
+  // ---------------------------------------------------------------------------
+  // NAVIGATION HOOKS
+  // ---------------------------------------------------------------------------
+  
+  /**
+   * useRouter() - Hook from expo-router for navigation.
+   * Provides methods like router.back() to go to previous screen.
+   */
   const router = useRouter();
+  
+  /**
+   * useLocalSearchParams() - Gets URL parameters from the route.
+   * <{ id: string }> tells TypeScript the shape of the params object.
+   * For route "/project/abc123", id would be "abc123".
+   */
   const { id } = useLocalSearchParams<{ id: string }>();
+  
+  /**
+   * useGame() - Custom hook from our GameContext.
+   * Provides moveQuest function that handles XP rewards when completing quests.
+   * The ": contextMoveQuest" renames it to avoid conflicts with local functions.
+   */
   const { moveQuest: contextMoveQuest } = useGame();
   
-  const [project, setProject] = useState<Project | null>(null);
-  const [quests, setQuests] = useState<Quest[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [draggingQuest, setDraggingQuest] = useState<Quest | null>(null);
+  // ---------------------------------------------------------------------------
+  // STATE VARIABLES - Using useState Hook
+  // ---------------------------------------------------------------------------
   
-  // Scroll position for column detection
+  /**
+   * useState<Type>(initialValue) - Creates a "state" variable.
+   * 
+   * State is SPECIAL because:
+   * - When state changes, the component RE-RENDERS (redraws the UI)
+   * - State persists between re-renders (regular variables reset)
+   * 
+   * Returns [currentValue, setterFunction]:
+   * - currentValue: The current state value
+   * - setterFunction: Function to update the state
+   * 
+   * <Project | null> means the type can be either a Project object OR null.
+   */
+  const [project, setProject] = useState<Project | null>(null);  // Current project data
+  const [quests, setQuests] = useState<Quest[]>([]);             // Array of quests
+  const [isLoading, setIsLoading] = useState(true);              // Loading state (boolean)
+  const [draggingQuest, setDraggingQuest] = useState<Quest | null>(null);  // Currently dragged quest
+  
+  /**
+   * useRef() - Creates a "reference" that persists between renders.
+   * Unlike state, changing a ref does NOT cause re-render.
+   * Used here to track scroll position without triggering re-renders.
+   */
   const scrollX = useRef(0);
   
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
+  // Modal State - Controls the add/edit quest popup
+  const [isModalOpen, setIsModalOpen] = useState(false);           // Is modal visible?
+  const [editingQuest, setEditingQuest] = useState<Quest | null>(null);  // Quest being edited (null = adding new)
   
-  // Form State
+  // Form State - Values entered in the add/edit form
   const [formTitle, setFormTitle] = useState('');
   const [formDetails, setFormDetails] = useState('');
   const [formDifficulty, setFormDifficulty] = useState<QuestDifficulty>('Normal');
 
+  // ---------------------------------------------------------------------------
+  // DATA LOADING FUNCTION
+  // ---------------------------------------------------------------------------
+  
+  /**
+   * useCallback(fn, dependencies) - "Remembers" a function.
+   * 
+   * Without useCallback, a new function is created every render.
+   * This can cause performance issues, especially when passed as props.
+   * 
+   * The function only gets recreated when dependencies change.
+   * Here, [id] means: recreate only when the project ID changes.
+   * 
+   * async/await EXPLAINED:
+   * - async: Marks function as "asynchronous" (can wait for slow operations)
+   * - await: Pauses execution until the operation completes
+   * - try/catch/finally: Error handling
+   *   - try: Attempt these operations
+   *   - catch: If error occurs, run this code
+   *   - finally: Always run this code, error or not
+   */
   const loadData = useCallback(async () => {
-    if (!id) return;
+    if (!id) return;  // Early return if no ID
     
     try {
-      setIsLoading(true);
-      const projectData = await getProjectById(id);
-      setProject(projectData);
+      setIsLoading(true);  // Show loading state
+      const projectData = await getProjectById(id);  // Wait for database query
+      setProject(projectData);  // Update state with result
       
       if (projectData) {
         const projectQuests = await getQuestsByProject(id);
         setQuests(projectQuests);
       }
     } catch (error) {
-      console.error('Error loading project:', error);
+      console.error('Error loading project:', error);  // Log errors for debugging
     } finally {
-      setIsLoading(false);
+      setIsLoading(false);  // Hide loading state (always runs)
     }
   }, [id]);
 
+  /**
+   * useFocusEffect - Hook that runs code when screen gains focus.
+   * 
+   * Unlike useEffect (runs on mount), this runs EVERY TIME you navigate
+   * to this screen. Useful for refreshing data when returning from another screen.
+   * 
+   * The callback inside MUST be wrapped in useCallback.
+   */
   useFocusEffect(
     useCallback(() => {
       loadData();
     }, [loadData])
   );
 
+  // ---------------------------------------------------------------------------
+  // MODAL HANDLERS - Functions for opening/closing the add/edit modal
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Opens the modal in "Add" mode.
+   * Clears all form fields and sets editingQuest to null.
+   */
   const openAddModal = () => {
-    setEditingQuest(null);
+    setEditingQuest(null);       // No quest = Add mode
     setFormTitle('');
     setFormDetails('');
     setFormDifficulty('Normal');
