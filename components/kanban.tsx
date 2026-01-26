@@ -75,12 +75,12 @@ import React from 'react';
  * - ViewStyle: TypeScript type for style objects
  */
 import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  ViewStyle,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    ViewStyle,
 } from 'react-native';
 
 /**
@@ -447,6 +447,31 @@ function getXPReward(difficulty: QuestDifficulty): number {
     Boss: 200,
   };
   return rewards[difficulty];
+}
+
+/**
+ * limitVisibleDoneTasks - Limits the number of visible DONE tasks.
+ * 
+ * This is useful to prevent the DONE column from becoming too long.
+ * By default, it shows only the 5 most recent completed tasks.
+ * 
+ * The function assumes quests are in chronological order (newest last).
+ * It returns the LAST N items to show the most recently completed.
+ * 
+ * @param quests - Array of quests to limit
+ * @param maxVisible - Maximum number of quests to show (default: 5)
+ * @returns A sliced array with at most maxVisible quests
+ * 
+ * USAGE:
+ * const visibleDoneTasks = limitVisibleDoneTasks(doneQuests);
+ * const visibleDoneTasks = limitVisibleDoneTasks(doneQuests, 10); // Show more
+ */
+export function limitVisibleDoneTasks(quests: Quest[], maxVisible: number = 5): Quest[] {
+  if (quests.length <= maxVisible) {
+    return quests;
+  }
+  // Return the most recent (last N) quests
+  return quests.slice(-maxVisible);
 }
 
 // =============================================================================

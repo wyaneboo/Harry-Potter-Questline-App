@@ -33,6 +33,9 @@ import { db } from './database';
 // TYPE DEFINITIONS
 // =============================================================================
 
+/** Hogwarts house options */
+export type HogwartsHouse = 'Gryffindor' | 'Slytherin' | 'Ravenclaw' | 'Hufflepuff';
+
 /** Represents user profile in the database */
 export interface Profile {
   id: number;
@@ -40,6 +43,8 @@ export interface Profile {
   level: number;
   xp: number;
   galleons: number;
+  house: HogwartsHouse;
+  profile_picture: string;
 }
 
 /** Data needed to create/update user profile */
@@ -48,6 +53,8 @@ export interface ProfileData {
   level?: number;
   xp?: number;
   galleons?: number;
+  house?: HogwartsHouse;
+  profile_picture?: string;
 }
 
 // =============================================================================
@@ -353,6 +360,14 @@ export async function updateProfile(data: ProfileData): Promise<boolean> {
     fields.push('galleons = ?');
     values.push(data.galleons);
   }
+  if (data.house !== undefined) {
+    fields.push('house = ?');
+    values.push(data.house);
+  }
+  if (data.profile_picture !== undefined) {
+    fields.push('profile_picture = ?');
+    values.push(data.profile_picture);
+  }
 
   if (fields.length === 0) {
     return false;
@@ -375,6 +390,24 @@ export async function updateProfile(data: ProfileData): Promise<boolean> {
  */
 export async function updateName(name: string): Promise<boolean> {
   return updateProfile({ name });
+}
+
+/**
+ * Update the user's Hogwarts house.
+ * @param house - The new house
+ * @returns True if update was successful
+ */
+export async function updateHouse(house: HogwartsHouse): Promise<boolean> {
+  return updateProfile({ house });
+}
+
+/**
+ * Update the user's profile picture.
+ * @param picture - The picture identifier
+ * @returns True if update was successful
+ */
+export async function updateProfilePicture(picture: string): Promise<boolean> {
+  return updateProfile({ profile_picture: picture });
 }
 
 // =============================================================================

@@ -141,6 +141,24 @@ export async function initializeDatabase(): Promise<void> {
     // Migration not needed or already done
   }
 
+  // Migration: Add house and profile_picture columns to profile table
+  try {
+    const profileTableInfo = await db.getFirstAsync<{ sql: string }>(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='profile'"
+    );
+    
+    if (profileTableInfo?.sql && !profileTableInfo.sql.includes('house')) {
+      console.log('Migrating profile table to add house and profile_picture...');
+      await db.execAsync(`
+        ALTER TABLE profile ADD COLUMN house TEXT DEFAULT 'Gryffindor';
+        ALTER TABLE profile ADD COLUMN profile_picture TEXT DEFAULT 'default';
+      `);
+      console.log('Profile table migration completed successfully');
+    }
+  } catch (profileMigrationError) {
+    console.log('Profile migration check:', profileMigrationError);
+  }
+
   console.log('Database initialized successfully');
 }
 

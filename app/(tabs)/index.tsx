@@ -93,7 +93,6 @@ export default function HomeScreen() {
   });
   const [projects, setProjects] = useState<ProjectWithQuests[]>([]);
   const [recentQuests, setRecentQuests] = useState<RecentQuest[]>([]);
-  const [house] = useState('Gryffindor'); // Default house, can be stored in profile later
 
   const loadData = useCallback(async () => {
     try {
@@ -167,7 +166,7 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Character Sheet</Text>
             <Text style={styles.headerSubtitle}>
-              {profile?.name || 'Wizard'} • Level {profile?.level || 1} {house}
+              {profile?.name || 'Wizard'} • Level {profile?.level || 1} {profile?.house || 'Gryffindor'}
             </Text>
           </View>
 
@@ -180,7 +179,11 @@ export default function HomeScreen() {
             >
               {/* House Badge */}
               <View style={styles.houseBadge}>
-                <Text style={styles.houseIcon}>{HOUSE_ICONS[house]}</Text>
+                <Text style={styles.houseIcon}>
+                  {profile?.profile_picture && profile.profile_picture !== 'default' 
+                    ? profile.profile_picture 
+                    : HOUSE_ICONS[profile?.house || 'Gryffindor']}
+                </Text>
                 <View style={styles.levelBadge}>
                   <Text style={styles.levelBadgeText}>Lvl {profile?.level || 1}</Text>
                 </View>

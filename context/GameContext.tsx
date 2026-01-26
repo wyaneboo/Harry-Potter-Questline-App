@@ -64,9 +64,11 @@ import { addRandomDrop, getInventoryWithDetails, InventoryItemWithDetails } from
 import {
     addGalleons as dbAddGalleons, // Renamed to avoid conflict with our wrapper function
     addXP as dbAddXP,
+    updateProfile as dbUpdateProfile,
     ensureProfile,
     getLevelProgress,
-    Profile
+    Profile,
+    ProfileData,
 } from '@/services/profileHelper';
 import { getAllProjects, Project } from '@/services/projectsHelper';
 import {
@@ -159,6 +161,9 @@ interface GameContextType {
   
   // ----- COMBINED REWARD ACTION -----
   rewardQuestCompletion: (difficulty: QuestDifficulty) => Promise<void>;
+  
+  // ----- PROFILE ACTIONS -----
+  updateProfile: (data: ProfileData) => Promise<boolean>;
 }
 
 // Type alias for backward compatibility
@@ -550,6 +555,25 @@ export function GameProvider({ children }: GameProviderProps) {
   }, [loadProfile, loadInventory]);
 
   // ==========================================================================
+  // PROFILE ACTIONS
+  // ==========================================================================
+
+  /**
+   * updateProfile - Updates the user's profile information.
+   * Used for changing name, house, profile picture, etc.
+   */
+  const updateProfile = useCallback(async (data: ProfileData) => {
+    try {
+      const success = await dbUpdateProfile(data);
+      await loadProfile(); // Refresh to show changes
+      return success;
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      return false;
+    }
+  }, [loadProfile]);
+
+  // ==========================================================================
   // CONTEXT VALUE - What we provide to all children
   // ==========================================================================
 
@@ -586,6 +610,9 @@ export function GameProvider({ children }: GameProviderProps) {
     
     // Reward actions
     rewardQuestCompletion,
+    
+    // Profile actions
+    updateProfile,
   };
 
   /**
