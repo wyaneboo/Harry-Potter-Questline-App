@@ -1,6 +1,13 @@
-# Welcome to your Expo app 👋
+# ⚡ Harry Potter Questline App ⚡
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Welcome to the **Harry Potter Questline App**, a magical task management application built with React Native and Expo! This app brings the Wizarding World to your daily routines, allowing you to organize your life using a Hogwarts-themed Kanban board.
+
+## ✨ Features
+
+- **Hogwarts Theme:** Immersive UI with deep maroon, gold accents, and parchment backgrounds.
+- **Quest Management:** Create, edit, and track tasks (quests) across customizable Kanban columns (To-Do, Doing, Done).
+- **Player Profile:** Customize your wizard profile with an avatar, choose your Hogwarts House, and track your level, XP, and galleons.
+- **Drag-and-Drop Kanban:** Seamlessly move quests between columns with intuitive drag-and-drop gestures.
 
 ## Get started
 
