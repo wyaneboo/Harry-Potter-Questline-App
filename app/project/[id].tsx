@@ -399,7 +399,7 @@ export default function ProjectDetailScreen() {
     return (
       <View style={styles.container}>
         <ImageBackground
-          source={require("@/assets/images/parchment-bg.png")}
+          source={require("@/assets/images/parchment-bg.jpg")}
           style={styles.gradient}
         >
           <View style={styles.loadingContainer}>
@@ -635,7 +635,7 @@ function DraggableColumn({
 
   return (
     <ImageBackground
-      source={require("@/assets/images/parchment-bg.png")}
+      source={require("@/assets/images/parchment-bg.jpg")}
       style={[styles.column, isDragging && styles.columnDropTarget]}
       imageStyle={{ opacity: 0.95, borderRadius: 16 }}
     >
