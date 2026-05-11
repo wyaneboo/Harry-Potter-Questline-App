@@ -1,6 +1,6 @@
-# ⚡ Harry Potter Questline App ⚡
+# Magic Task Doer
 
-Welcome to the **Harry Potter Questline App**, a magical task management application built with React Native and Expo! This app brings the Wizarding World to your daily routines, allowing you to organize your life using a Hogwarts-themed Kanban board.
+Welcome to **Magic Task Doer**, a magical task management application built with React Native and Expo! This app brings the Wizarding World to your daily routines, allowing you to organize your life using a Hogwarts-themed Kanban board.
 
 ## ✨ Features
 

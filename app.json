@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "Harry-Potter-Questline-App",
+    "name": "Magic Task Doer",
     "slug": "magic-task-doer",
     "owner": "boowyanes-organization",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "harrypotterquestlineapp",
+    "scheme": "magictaskdoerscheme",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.boowyane.HarryPotterQuestlineApp",
+      "bundleIdentifier": "wyane.magictaskdoer",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -25,7 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.boowyane.HarryPotterQuestlineApp"
+      "package": "wyane.magictaskdoer"
     },
     "web": {
       "output": "static",
