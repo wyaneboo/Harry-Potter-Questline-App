@@ -1,7 +1,8 @@
 {
   "expo": {
     "name": "Harry-Potter-Questline-App",
-    "slug": "Harry-Potter-Questline-App",
+    "slug": "magic-task-doer",
+    "owner": "boowyanes-organization",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -53,7 +54,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "65f44886-7842-4ae6-94d9-87d14218dad9"
+        "projectId": "3e156480-386d-4d33-abd2-f719e12f5e32"
       }
     }
   }
